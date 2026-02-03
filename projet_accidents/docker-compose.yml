@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Service API
+  api:
+    build: .
+    container_name: accident-prediction-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME:-accidents_db}
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-password123}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - accident-network
+    restart: unless-stopped
+
+  # Service Base de données PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: accident-db
+    environment:
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password123}
+      - POSTGRES_DB=${DB_NAME:-accidents_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d accidents_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - accident-network
+    restart: unless-stopped
+
+# Volumes nommés pour la persistance
+volumes:
+  postgres_data:
+
+# Réseau personnalisé
+networks:
+  accident-network:
+    driver: bridge

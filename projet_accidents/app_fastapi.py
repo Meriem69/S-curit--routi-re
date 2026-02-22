@@ -6,13 +6,13 @@ import joblib
 import numpy as np
 import uvicorn
 import os
-from datetime import datetime
 
 # =====================
 # BASE DE DONNÉES
 # =====================
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
 
 def get_db_connection():
     """Connexion à PostgreSQL"""
@@ -21,12 +21,13 @@ def get_db_connection():
             host=os.getenv("DB_HOST", "db"),
             database=os.getenv("DB_NAME", "accidents_db"),
             user=os.getenv("DB_USER", "admin"),
-            password=os.getenv("DB_PASSWORD", "password123")
+            password=os.getenv("DB_PASSWORD", "password123"),
         )
         return conn
     except Exception as e:
         print(f"Erreur connexion BDD: {e}")
         return None
+
 
 def init_db():
     """Créer la table historique si elle n'existe pas"""
@@ -55,22 +56,38 @@ def init_db():
         except Exception as e:
             print(f"Erreur création table: {e}")
 
-def save_prediction(age, sexe, vehicule, meteo, luminosite, type_route, resultat, probabilite):
+
+def save_prediction(
+    age, sexe, vehicule, meteo, luminosite, type_route, resultat, probabilite
+):
     """Sauvegarder une prédiction dans la BDD"""
     conn = get_db_connection()
     if conn:
         try:
             cur = conn.cursor()
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO historique (age, sexe, vehicule, meteo, luminosite, type_route, resultat, probabilite)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (age, sexe, vehicule, meteo, luminosite, type_route, resultat, probabilite))
+            """,
+                (
+                    age,
+                    sexe,
+                    vehicule,
+                    meteo,
+                    luminosite,
+                    type_route,
+                    resultat,
+                    probabilite,
+                ),
+            )
             conn.commit()
             cur.close()
             conn.close()
             print("✅ Prédiction sauvegardée")
         except Exception as e:
             print(f"Erreur sauvegarde: {e}")
+
 
 def get_historique():
     """Récupérer l'historique des prédictions"""
@@ -92,12 +109,13 @@ def get_historique():
             return []
     return []
 
+
 # =====================
 # APPLICATION FASTAPI
 # =====================
 
 # Charger le modèle
-model = joblib.load('modele_final.pkl')
+model = joblib.load("modele_final.pkl")
 
 app = FastAPI(title="API Prédiction Accidents", version="1.0")
 
@@ -106,15 +124,29 @@ templates = Jinja2Templates(directory="templates")
 
 # Dictionnaires pour convertir les codes en texte lisible
 SEXE_MAP = {1: "Homme", 2: "Femme"}
-VEHICULE_MAP = {1: "Vélo", 2: "Cyclomoteur", 7: "Voiture", 13: "Poids lourd", 31: "Moto", 50: "Trottinette"}
+VEHICULE_MAP = {
+    1: "Vélo",
+    2: "Cyclomoteur",
+    7: "Voiture",
+    13: "Poids lourd",
+    31: "Moto",
+    50: "Trottinette",
+}
 METEO_MAP = {1: "Normale", 2: "Pluie légère", 3: "Pluie forte", 4: "Neige"}
-LUM_MAP = {1: "Jour", 2: "Crépuscule", 3: "Nuit sans éclairage", 4: "Nuit avec éclairage"}
+LUM_MAP = {
+    1: "Jour",
+    2: "Crépuscule",
+    3: "Nuit sans éclairage",
+    4: "Nuit avec éclairage",
+}
 ROUTE_MAP = {1: "Autoroute", 2: "Nationale", 3: "Départementale", 4: "Communale"}
+
 
 # Initialiser la BDD au démarrage
 @app.on_event("startup")
 async def startup_event():
     init_db()
+
 
 # =====================
 # ENDPOINT GET /health
@@ -122,11 +154,8 @@ async def startup_event():
 @app.get("/health")
 def health_check():
     """Vérification du statut de l'API"""
-    return {
-        "status": "ok",
-        "model_loaded": True,
-        "version": "1.0"
-    }
+    return {"status": "ok", "model_loaded": True, "version": "1.0"}
+
 
 # =====================
 # ENDPOINT GET /historique
@@ -135,10 +164,10 @@ def health_check():
 async def historique(request: Request):
     """Afficher l'historique des prédictions"""
     data = get_historique()
-    return templates.TemplateResponse("historique.html", {
-        "request": request,
-        "historique": data
-    })
+    return templates.TemplateResponse(
+        "historique.html", {"request": request, "historique": data}
+    )
+
 
 # =====================
 # ENDPOINT POST /predict (API JSON)
@@ -159,21 +188,37 @@ class AccidentData(BaseModel):
     secu1: int
     terre_plein: int
 
+
 @app.post("/predict")
 def predict(data: AccidentData):
     """Prédiction de gravité d'accident (API JSON)"""
-    
-    input_data = np.array([[
-        data.lum, data.agg, data.int, data.atm, data.col, data.catr,
-        data.catv, data.heure, data.jour_semaine, data.weekend,
-        data.sexe, data.age, data.secu1, data.terre_plein
-    ]])
-    
+
+    input_data = np.array(
+        [
+            [
+                data.lum,
+                data.agg,
+                data.int,
+                data.atm,
+                data.col,
+                data.catr,
+                data.catv,
+                data.heure,
+                data.jour_semaine,
+                data.weekend,
+                data.sexe,
+                data.age,
+                data.secu1,
+                data.terre_plein,
+            ]
+        ]
+    )
+
     prediction = model.predict(input_data)[0]
     proba = model.predict_proba(input_data)[0][1]
-    
+
     resultat = "GRAVE" if prediction == 1 else "PAS GRAVE"
-    
+
     # Sauvegarder dans la BDD
     save_prediction(
         age=data.age,
@@ -183,14 +228,15 @@ def predict(data: AccidentData):
         luminosite=LUM_MAP.get(data.lum, "Inconnue"),
         type_route=ROUTE_MAP.get(data.catr, "Inconnue"),
         resultat=resultat,
-        probabilite=round(proba * 100, 1)
+        probabilite=round(proba * 100, 1),
     )
-    
+
     return {
         "prediction": int(prediction),
         "label": resultat,
-        "probabilite_grave": round(proba * 100, 1)
+        "probabilite_grave": round(proba * 100, 1),
     }
+
 
 # =====================
 # INTERFACE WEB
@@ -199,6 +245,7 @@ def predict(data: AccidentData):
 async def home(request: Request):
     """Page d'accueil avec formulaire"""
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.post("/predict_form", response_class=HTMLResponse)
 async def predict_form(
@@ -216,15 +263,34 @@ async def predict_form(
     sexe: int = Form(...),
     age: int = Form(...),
     secu1: int = Form(...),
-    terre_plein: int = Form(...)
+    terre_plein: int = Form(...),
 ):
     """Prédiction via formulaire web"""
-    
-    input_data = np.array([[lum, agg, int, atm, col, catr, catv, heure, jour_semaine, weekend, sexe, age, secu1, terre_plein]])
-    
+
+    input_data = np.array(
+        [
+            [
+                lum,
+                agg,
+                int,
+                atm,
+                col,
+                catr,
+                catv,
+                heure,
+                jour_semaine,
+                weekend,
+                sexe,
+                age,
+                secu1,
+                terre_plein,
+            ]
+        ]
+    )
+
     prediction = model.predict(input_data)[0]
     proba = model.predict_proba(input_data)[0][1]
-    
+
     if prediction == 1:
         resultat = "⚠️ ACCIDENT GRAVE"
         resultat_db = "GRAVE"
@@ -233,7 +299,7 @@ async def predict_form(
         resultat = "✅ ACCIDENT PAS GRAVE"
         resultat_db = "PAS GRAVE"
         couleur = "success"
-    
+
     # Sauvegarder dans la BDD
     save_prediction(
         age=age,
@@ -243,15 +309,19 @@ async def predict_form(
         luminosite=LUM_MAP.get(lum, "Inconnue"),
         type_route=ROUTE_MAP.get(catr, "Inconnue"),
         resultat=resultat_db,
-        probabilite=round(proba * 100, 1)
+        probabilite=round(proba * 100, 1),
     )
-    
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "prediction": resultat,
-        "couleur": couleur,
-        "proba": f"{proba*100:.1f}"
-    })
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "prediction": resultat,
+            "couleur": couleur,
+            "proba": f"{proba * 100:.1f}",
+        },
+    )
+
 
 # Lancer le serveur
 if __name__ == "__main__":

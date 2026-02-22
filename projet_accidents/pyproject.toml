@@ -4,9 +4,21 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.131.0",
+    "jinja2>=3.1.6",
+    "joblib>=1.5.3",
+    "numpy>=2.4.2",
+    "psycopg2-binary>=2.9.11",
+    "python-multipart>=0.0.22",
+    "scikit-learn>=1.8.0",
+    "uvicorn>=0.41.0",
+]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
     "ruff>=0.15.2",
 ]

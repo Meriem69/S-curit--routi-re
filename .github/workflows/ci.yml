@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+defaults:
+  run:
+    working-directory: projet_accidents
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "projet_accidents/uv.lock"
+
+      - name: Installer les dépendances
+        run: uv sync --all-extras
+
+      - name: Vérifier le code avec ruff
+        run: uv run ruff check .
+
+      - name: Vérifier le formatage avec ruff
+        run: uv run ruff format --check .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "projet_accidents/uv.lock"
+
+      - name: Installer les dépendances
+        run: uv sync --all-extras
+
+      - name: Installer mypy
+        run: uv add --dev mypy
+
+      - name: Vérifier les types avec mypy
+        run: uv run mypy app_fastapi.py --ignore-missing-imports
+        continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "projet_accidents/uv.lock"
+
+      - name: Installer les dépendances
+        run: uv sync --all-extras
+
+      - name: Installer bandit
+        run: uv add --dev bandit
+
+      - name: Analyse sécurité avec bandit
+        run: uv run bandit -r app_fastapi.py app.py -ll
+        continue-on-error: true
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "projet_accidents/uv.lock"
+
+      - name: Installer les dépendances
+        run: uv sync --all-extras
+
+      - name: Lancer les tests avec coverage
+        run: uv run pytest tests/ -v --cov=. --cov-report=term-missing

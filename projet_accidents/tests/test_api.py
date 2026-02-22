@@ -19,6 +19,7 @@ def mock_model():
 @pytest.fixture
 def client(mock_model):
     from app_fastapi import app
+
     return TestClient(app)
 
 
@@ -75,10 +76,20 @@ def test_predict_returns_grave(client):
         response = client.post(
             "/predict",
             json={
-                "lum": 1, "agg": 1, "int": 1, "atm": 1,
-                "col": 1, "catr": 2, "catv": 7, "heure": 14,
-                "jour_semaine": 2, "weekend": 0, "sexe": 1,
-                "age": 35, "secu1": 1, "terre_plein": 0,
+                "lum": 1,
+                "agg": 1,
+                "int": 1,
+                "atm": 1,
+                "col": 1,
+                "catr": 2,
+                "catv": 7,
+                "heure": 14,
+                "jour_semaine": 2,
+                "weekend": 0,
+                "sexe": 1,
+                "age": 35,
+                "secu1": 1,
+                "terre_plein": 0,
             },
         )
     assert response.json()["label"] == "GRAVE"
